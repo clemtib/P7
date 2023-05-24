@@ -1,4 +1,5 @@
 const Book = require("../models/Book");
+// const mongoose = require("mongoose");
 
 const fs = require("fs");
 
@@ -76,6 +77,7 @@ exports.deleteBook = (req, res, next) => {
 };
 
 exports.getOneBook = (req, res, next) => {
+   console.log();
    Book.findOne({
       _id: req.params.id,
    })
@@ -87,9 +89,6 @@ exports.getOneBook = (req, res, next) => {
             error,
          });
       });
-   // .finally(() => {
-   //    next();
-   // });
 };
 
 exports.getAllBooks = (req, res, next) => {
@@ -105,35 +104,46 @@ exports.getAllBooks = (req, res, next) => {
 };
 
 exports.addRating = (req, res, next) => {
+   const bookId = req.params.id;
    const ratingObject = req.body;
    ratingObject.grade = ratingObject.rating;
    delete ratingObject.rating;
 
-   console.log(req.params.id);
-   console.log(ratingObject);
+   Book.findByIdAndUpdate(
+      bookId,
+      { $push: { ratings: ratingObject } },
+      { new: true }
+   )
+      .then((book) => {
+         const averageRating =
+            book.ratings.reduce((sum, rating) => sum + rating.grade, 0) /
+            book.ratings.length;
 
-   Book.updateOne({ _id: req.params.id }, { $push: { ratings: ratingObject } })
-      .then(() => {
-         // return getOneBook(req, res, next);
-
-         Book.findOne({
-            _id: req.params.id,
-         })
-            .then((book) => {
-               res.status(200).json(book);
-            })
-            .catch((error) => {
-               res.status(404).json({
-                  error,
-               });
-            });
+         return Book.findByIdAndUpdate(
+            bookId,
+            { averageRating },
+            { new: true }
+         );
       })
-
+      .then((updatedBook) => {
+         res.status(200).json(updatedBook);
+      })
       .catch((error) => {
          res.status(400).json({ error });
       });
 };
 
-exports.bestRating = (req, res, next) => {
-   console.log("Hello Best Rating");
+exports.getBestRating = (req, res, next) => {
+   Book.find()
+      .sort({ averageRating: -1 })
+      .limit(3)
+      .then((books) => {
+         res.json(books);
+      })
+      .catch((err) => {
+         console.error(err);
+         res.status(500).json({
+            error: "Une erreur est survenue lors de la récupération des livres.",
+         });
+      });
 };
