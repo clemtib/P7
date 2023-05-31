@@ -1,4 +1,7 @@
+const sharp = require("sharp");
+
 const Book = require("../models/Book");
+
 // const mongoose = require("mongoose");
 
 const fs = require("fs");
@@ -7,23 +10,70 @@ exports.createBook = (req, res, next) => {
    const bookObject = JSON.parse(req.body.book);
    delete bookObject._id;
    delete bookObject._userId;
-   const book = new Book({
-      ...bookObject,
-      userId: req.auth.userId,
-      imageUrl: `${req.protocol}://${req.get("host")}/images/${
-         req.file.filename
-      }`,
-   });
 
-   book
-      .save()
-      .then(() => {
-         res.status(201).json({ message: "Objet enregistré !" });
-      })
-      .catch((error) => {
-         console.log("Erreur d'envoie");
-         res.status(400).json({ error });
+   // Convertir l'image en format .webp
+   if (req.file) {
+      const filePath = req.file.path;
+
+      sharp(filePath)
+         .webp()
+         .toFile(filePath.replace(/\.[^.]+$/, ".webp"), (err, info) => {
+            if (err) {
+               console.log(
+                  "Erreur lors de la conversion en format webp :",
+                  err
+               );
+            }
+
+            // Supprimer le fichier original après la conversion
+            fs.unlink(filePath, (err) => {
+               if (err) {
+                  console.log(
+                     "Erreur lors de la suppression du fichier original :",
+                     err
+                  );
+               }
+            });
+
+            // Enregistrer l'URL de l'image convertie dans la base de données
+            const book = new Book({
+               ...bookObject,
+               userId: req.auth.userId,
+               imageUrl: `${req.protocol}://${req.get(
+                  "host"
+               )}/images/${req.file.filename.replace(/\.[^.]+$/, ".webp")}`,
+            });
+
+            book
+               .save()
+               .then(() => {
+                  res.status(201).json({ message: "Objet enregistré !" });
+               })
+               .catch((error) => {
+                  console.log(
+                     "Erreur lors de l'enregistrement de l'objet :",
+                     error
+                  );
+                  res.status(400).json({ error });
+               });
+         });
+   } else {
+      // Si aucune image n'a été téléchargée, enregistrer l'objet sans imageUrl
+      const book = new Book({
+         ...bookObject,
+         userId: req.auth.userId,
       });
+
+      book
+         .save()
+         .then(() => {
+            res.status(201).json({ message: "Objet enregistré !" });
+         })
+         .catch((error) => {
+            console.log("Erreur lors de l'enregistrement de l'objet :", error);
+            res.status(400).json({ error });
+         });
+   }
 };
 
 exports.modifyBook = (req, res, next) => {
@@ -77,7 +127,6 @@ exports.deleteBook = (req, res, next) => {
 };
 
 exports.getOneBook = (req, res, next) => {
-   console.log();
    Book.findOne({
       _id: req.params.id,
    })
@@ -92,6 +141,8 @@ exports.getOneBook = (req, res, next) => {
 };
 
 exports.getAllBooks = (req, res, next) => {
+   //essayer de recuperer le token, le decoder avec jwt (decoder) pour savoir si il est valide ou non si pas valide => localStorage.clear
+   // si trop tard essayer de le mettre dans le fichier app.js
    Book.find()
       .then((books) => {
          res.status(200).json(books);
@@ -119,16 +170,16 @@ exports.addRating = (req, res, next) => {
             book.ratings.reduce((sum, rating) => sum + rating.grade, 0) /
             book.ratings.length;
 
+         const roundedRating = Number(averageRating.toFixed(1));
+
          return Book.findByIdAndUpdate(
             bookId,
-            { averageRating },
+            { averageRating: roundedRating },
             { new: true }
          );
       })
       .then((updatedBook) => {
          res.status(200).json(updatedBook);
-
-         // return exports.getBestRating(req, res, next);
       })
       .catch((error) => {
          res.status(400).json({ error });
