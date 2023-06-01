@@ -3,7 +3,7 @@ const cors = require("cors");
 // const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 
-const stuffRoutes = require("./routes/stuff");
+const bookRoutes = require("./routes/book");
 const userRoutes = require("./routes/user");
 const path = require("path");
 
@@ -34,7 +34,7 @@ app.use((req, res, next) => {
    next();
 });
 
-app.use("/api/books", stuffRoutes);
+app.use("/api/books", bookRoutes);
 app.use("/api/auth", userRoutes);
 app.use("/images", express.static(path.join(__dirname, "images")));
 
