@@ -6,6 +6,7 @@ exports.createBook = (req, res, next) => {
    const bookObject = JSON.parse(req.body.book);
    delete bookObject._id;
    delete bookObject._userId;
+
    const book = new Book({
       ...bookObject,
       userId: req.auth.userId,
@@ -16,11 +17,8 @@ exports.createBook = (req, res, next) => {
 
    book
       .save()
-      .then(() => {
-         res.status(201).json({ message: "Objet enregistré !" });
-      })
+      .then(res.status(201).json({ message: "Objet enregistré !" }))
       .catch((error) => {
-         console.log("Erreur d'envoie");
          res.status(400).json({ error });
       });
 };
